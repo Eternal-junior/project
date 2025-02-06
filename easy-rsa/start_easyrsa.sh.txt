@@ -1,0 +1,30 @@
+#!/bin/bash
+
+
+# Функция для обработки ошибок
+handle_error() {
+    echo "Ошибка на этапе: $1"
+    echo "Скрипт завершен с ошибкой."
+    exit 1
+}
+
+#Проверим наличие файла с расширением req
+read -p "Введите login пользователя: "
+if [ ! -f ~/easy-rsa/pki/reqs/"$REPLY".req ]; then
+    echo "Файл "$REPLY".req не существует"
+    exit 1
+else
+    cd ~/easy-rsa || handle_error "Перехода в рабочую директорию"
+    #Подпишем сертификат
+    ./easyrsa sign-req client "$REPLY" || handle_error "Создания сертификата"
+    #Перенаправим сертифика и ключ и папку для создания сертифика .ovpn
+    cp ~/easy-rsa/pki/issued/"$REPLY".crt ~/.clients/keys || handle_error "Копировании сертификата"
+    cp ~/easy-rsa/pki/private/"$REPLY".key ~/.clients/keys || handle_error "Копирования ключа"
+    #Скрипт создания клиентского сертифика.
+    ~/.clients/make_config.sh "$REPLY" || handle_error "Создания клиентского сертификата"
+    #Заархифируем и установим пароль.
+    echo "Введите пароль от архива"
+    zip -e ~/.clients/files/"$REPLY".ovpn.zip ~/.clients/files/"$REPLY".ovpn || handle_error "Aрхивирования"
+fi
+
+echo "Все прошло успешно, можете забрать zip файл с сертификатом клиента."

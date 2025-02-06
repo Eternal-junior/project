@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#For using http/https:
+#---DNS---
+    iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT -m comment --comment dns
+    iptables -A OUTPUT -p udp --dport 53 -j ACCEPT -m comment --comment dns
+    #---NTP---
+    iptables -A OUTPUT -p udp --dport 123 -j ACCEPT -m comment --comment ntp
+    #---ICMP---
+    iptables -A OUTPUT -p icmp -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+    iptables -A INPUT -p icmp -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+    #---loopback---
+    iptables -A OUTPUT -o lo -j ACCEPT
+    iptables -A INPUT -i lo -j ACCEPT
+    #---Input-SSH---
+    iptables -A INPUT -p tcp --dport 222 -j ACCEPT -m comment --comment ssh
+    iptables -A OUTPUT -p tcp --dport 222 -j ACCEPT -m comment --comment ssh
+    #---Output-HTTP---
+    iptables -A OUTPUT -p tcp -m multiport --dports 443,80 -j ACCEPT
+    #---ESTABLISHED---
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    #---INVALID---
+    iptables -A OUTPUT -m state --state INVALID -j DROP
+    iptables -A INPUT -m state --state INVALID -j DROP
+    #---Conect web repo
+    sudo iptables -A INPUT -p tcp --dport 1111 -j ACCEPT -m comment --comment repo_nginx
+    sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT -m comment --comment nginx
+
+    sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT -m comment --comment nginx-exporter
+    #---Defaul-Drop---
+    iptables -P OUTPUT DROP
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP

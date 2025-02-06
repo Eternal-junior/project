@@ -1,0 +1,16 @@
+[Unit]
+Description=Monitoring system and time series database
+Documentation=httpsprometheus.iodocsintroductionoverview
+
+[Service]
+Restart=always
+User=prometheus
+EnvironmentFile=etcdefaultprometheus
+ExecStart=usrbinprometheus $ARGS
+ExecReload=binkill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

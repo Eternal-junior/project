@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Функция для обработки ошибок
+handle_error() {
+    echo "Ошибка: $1"
+    exit 1
+}
+
+# Переход в рабочую директорию
+cd ~/easy-rsa || handle_error "Не удалось перейти в директорию ~/easy-rsa."
+
+# Запрос логина пользователя
+read -p "Введите login пользователя: " USER_LOGIN
+
+# Проверка, что логин не пустой
+if [ -z "$USER_LOGIN" ]; then
+    handle_error "Логин пользователя не может быть пустым."
+fi
+
+# Проверка, что директория pki существует
+if [ ! -d "pki" ]; then
+    handle_error "Директория pki не найдена."
+fi
+
+# Создание ключа и запроса
+./easyrsa gen-req "$USER_LOGIN" nopass || handle_error "Не удалось создать ключ и запрос для пользователя $USER_LOGIN."
+
+# Проверка, что файлы ключа и запроса созданы
+if [ ! -f "pki/private/$USER_LOGIN.key" ]; then
+    handle_error "Файл ключа pki/private/$USER_LOGIN.key не найден."
+fi
+
+if [ ! -f "pki/reqs/$USER_LOGIN.req" ]; then
+    handle_error "Файл запроса pki/reqs/$USER_LOGIN.req не найден."
+fi
+
+# Отправка ключа на сервер удостоверяющего центра
+scp -P 222 "pki/private/$USER_LOGIN.key" admin@194.28.224.250:/home/admin/easy-rsa/pki/private/ || handle_error "Не удалось отправить ключ на сервер."
+
+# Отправка запроса на сервер удостоверяющего центра
+scp -P 222 "pki/reqs/$USER_LOGIN.req" admin@194.28.224.250:/home/admin/easy-rsa/pki/reqs/ || handle_error "Не удалось отправить запрос на сервер."
+
+echo "Ключ и запрос для пользователя $USER_LOGIN успешно созданы и отправлены на сервер удостоверяющего центра."

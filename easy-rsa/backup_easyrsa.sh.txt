@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Функция для обработки ошибок
+handle_error() {
+    echo "Ошибка на этапе: $1"
+    echo "Скрипт завершен с ошибкой."
+    exit 1
+}
+
+# Конфигурация
+BACKUP_DIR="/home/admin/Backup"  # Директория хранения бэкапов
+PACKAGE_NAME="easy-rsa-lab"      # Название пакета
+TARGET_DIR="/home/admin/easy-rsa /home/admin/.clients/make_config.sh /home/admin/iptables.sh /home/admin/backup.sh /home/admin/.ssh /etc/ssh/sshd_config /home/admin/Инструкции"  # Файлы для бэкапа
+
+# Проверка существования целевых файлов
+for TARGET in $TARGET_DIR; do
+    if [ ! -e "$TARGET" ]; then
+        handle_error "Проверка целевых файлов: файл $TARGET не существует"
+    fi
+done
+
+# Определение последней версии
+LAST_VERSION=$(ls "$BACKUP_DIR" | grep -oP "$PACKAGE_NAME-0\.\d+" | sort -V | tail -n1 | grep -oP "\d+$")
+if [ -z "$LAST_VERSION" ]; then
+    LAST_VERSION=0
+fi
+NEW_VERSION=$((LAST_VERSION + 1))
+
+# Создание временной рабочей директории
+WORK_DIR="/home/admin/deb"
+PKG_DIR="$WORK_DIR/$PACKAGE_NAME-0.$NEW_VERSION"
+mkdir -p "$PKG_DIR" || handle_error "Создание временной директории"
+
+# Копирование файлов для бэкапа
+cp -r $TARGET_DIR "$PKG_DIR" || handle_error "Копирование файлов для бэкапа"
+
+# Переход в рабочую папку
+cd "$PKG_DIR" || handle_error "Переход в рабочую папку"
+
+# Создание шаблона структуры Debian пакета
+dh_make --createorig -y -s -p "$PACKAGE_NAME-0.$NEW_VERSION" || handle_error "Создание шаблона Debian пакета"
+
+# Отключение лишних скриптов
+rm -rf ./debian/*ex ./debian/*EX ./debian/READ* || handle_error "Удаление лишних скриптов"
+
+# Копирование файла install
+cp "$WORK_DIR"/install "$PKG_DIR"/debian || handle_error "Копирование файла install"
+
+# Заполнение control-файла
+cat <<EOF > "debian/control" || handle_error "Заполнение control-файла"
+Source: $PACKAGE_NAME-0.$NEW_VERSION
+Section: lab
+Priority: optional
+Maintainer: admin <Companyname@gmail.ru>
+Build-Depends: debhelper-compat (= 12)
+Standards-Version: 4.4.1
+Homepage: https://github.com/Eternal-junior/easy-rsa
+#Vcs-Browser: https://salsa.debian.org/debian/easy-rsa-lab
+#Vcs-Git: https://salsa.debian.org/debian/easy-rsa-lab.git
+Rules-Requires-Root: no
+
+Package: $PACKAGE_NAME-0.$NEW_VERSION
+Architecture: all
+Depends: openssl
+Recommends: opensc
+Description: Simple shell based CA utility
+ This package eases the creation of certificates, for example for openvpn clients.
+ This was formerly part of the openvpn package.
+EOF
+
+# Сборка пакета
+debuild -b -us -uc || handle_error "Сборка пакета"
+
+# Копирование результата в целевую директорию
+mv "$WORK_DIR"/*.deb "$BACKUP_DIR/$PACKAGE_NAME-0.$NEW_VERSION.deb" || handle_error "Копирование результата в целевую директорию"
+
+# Удаление временных файлов
+rm -rf "$WORK_DIR"/easy-rsa* || handle_error "Удаление временных файлов"
+
+# Отправка файлов в удаленный репозиторий
+scp -P 222 "$BACKUP_DIR/$PACKAGE_NAME-0.$NEW_VERSION.deb" admin@37.46.18.242:/home/admin/Backup/easy-rsa || handle_error "Отправка файлов в удаленный репозиторий"
+
+echo "Бэкап и отправка завершены успешно."

@@ -1,0 +1,76 @@
+Настройка remote repo:
+sudo apt-get install -y bzip2
+wget -P ~/ https://github.com/aptly-dev/aptly/releases/download/v1.5.0/aptly_1.5.0_linux_amd64.tar.gz
+tar xvf ~/aptly_1.5.0_linux_amd64.tar.gz
+sudo cp ~/aptly_1.5.0_linux_amd64/aptly /usr/local/bin/
+добавить в файл /etc/aptly.conf:
+{
+  "rootDir": "/opt/aptly",
+  "downloadConcurrency": 4,
+  "downloadSpeedLimit": 0,
+  "architectures": ["all"],
+  "dependencyFollowSuggests": false,
+  "dependencyFollowRecommends": false,
+  "dependencyFollowAllVariants": false,
+  "dependencyFollowSource": false,
+  "dependencyVerboseResolve": false,
+  "gpgDisableSign": false,
+  "gpgDisableVerify": false,
+  "gpgProvider": "gpg",
+  "downloadSourcePackages": true,
+  "skipLegacyPool": true,
+  "ppaDistributorID": "ubuntu",
+  "ppaCodename": "",
+  "FileSystemPublishEndpoints": {
+    "lab": {
+      "rootDir": "/var/www/aptly",
+      "linkMethod": "symlink",
+      "verifyMethod": "md5"
+    }
+  },
+  "enableMetricsEndpoint": false
+}
+sudo apt-get install -y rng-tools
+sudo rngd -r /dev/urandom
+sudo gpg --default-new-key-algo rsa4096 --gen-key --keyring pubring
+sudo apt-get update
+sudo apt-get install -y nginx
+sudo apt-get install -y apache2-utils
+htpasswd -nbB -C 10 admin "password"
+В результате выполнения получится строка в формате admin:"Пароль" , ее необходимо записать в файле /etc/nginx/conf.d/.htpasswd.
+Настроем конфигурационный файл nginx и установим службу в автозапуск:
+sudo systemctl restart nginx.service
+sudo systemctl enable nginx.service
+
+Создание репозитория lab:
+sudo aptly repo create -comment="lab repo" -component="main" -distribution="focal" lab
+
+Перенос пакета:
+sudo aptly repo add lab ~/easy-rsa-lab_0.1-1_all.deb
+
+Просмотреть список созданных репозиториев:
+sudo aptly repo list
+
+Просмотр список опубликованных репозиториев:
+sudo aptly publish list
+
+Подробная информация о репозитории, напримере lab:
+sudo aptly repo show -with-packages lab
+
+Подробная информация о пакете на примере «easy-rsa-lab_0.1-1_all.deb»:
+sudo aptly package show easy-rsa-lab_0.1-1_all
+
+Удаление репозитория на примере «lab»:
+sudo aptly repo drop lab
+
+Снятие репозитория с публикации на примере «lab»:
+sudo aptly publish drop focal filesystem:lab:lab
+
+Удаление пакета из репозитория на примере «easy-rsa-lab_0.1-1_all.deb»:
+sudo aptly repo remove lab easy-rsa-lab_0.1-1_all
+
+Сделать первую публикаю:
+sudo aptly publish repo lab filesystem:lab:lab
+
+В случае изменений в пакетах:
+sudo aptly publish update focal filesystem:lab:lab

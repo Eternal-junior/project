@@ -1,0 +1,17 @@
+WantedBy=multi-user.target
+[Unit]
+Description=Alertmanager
+After=network.target
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/alertmanager --config.file=/etc/prometheus/alertmanager.yml --cluster.advertise-address=37.46.18.51:9093
+Restart=always
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=/home/prometheus"
+StandardOutput=append:/var/log/alertmanager_output.log
+StandardError=append:/var/log/alertmanager_error.log
+
+[Install]
+WantedBy=multi-user.target

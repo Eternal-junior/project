@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# Функция для обработки ошибок
+handle_error() {
+    echo "Ошибка: $1"
+    exit 1
+}
+
+# Определение путей
+KEY_DIR=~/.clients/keys
+OUTPUT_DIR=~/.clients/files
+BASE_CONFIG=~/.clients/files/base.conf
+
+# Проверка существования директорий и файлов
+if [ ! -d "$KEY_DIR" ]; then
+    handle_error "Директория с ключами $KEY_DIR не существует."
+fi
+
+if [ ! -d "$OUTPUT_DIR" ]; then
+    handle_error "Директория для выходных файлов $OUTPUT_DIR не существует."
+fi
+
+if [ ! -f "$BASE_CONFIG" ]; then
+    handle_error "Базовый конфигурационный файл $BASE_CONFIG не найден."
+fi
+
+# Проверка наличия необходимых файлов для клиента
+CLIENT_KEY="${KEY_DIR}/${1}.key"
+CLIENT_CERT="${KEY_DIR}/${1}.crt"
+CA_CERT="${KEY_DIR}/ca.crt"
+TA_KEY="${KEY_DIR}/ta.key"
+
+if [ ! -f "$CLIENT_KEY" ]; then
+    handle_error "Файл ключа клиента $CLIENT_KEY не найден."
+fi
+
+if [ ! -f "$CLIENT_CERT" ]; then
+    handle_error "Файл сертификата клиента $CLIENT_CERT не найден."
+fi
+
+if [ ! -f "$CA_CERT" ]; then
+    handle_error "Файл сертификата CA $CA_CERT не найден."
+fi
+
+if [ ! -f "$TA_KEY" ]; then
+    handle_error "Файл ключа TLS $TA_KEY не найден."
+fi
+
+# Создание конфигурационного файла для клиента
+{
+    cat "${BASE_CONFIG}" || handle_error "Не удалось прочитать базовый конфигурационный файл."
+    echo -e '<ca>' || handle_error "Не удалось добавить тег <ca>."
+    cat "${CA_CERT}" || handle_error "Не удалось добавить сертификат CA."
+    echo -e '</ca>' || handle_error "Не удалось добавить тег </ca>."
+    echo -e '<cert>' || handle_error "Не удалось добавить тег <cert>."
+    cat "${CLIENT_CERT}" || handle_error "Не удалось добавить сертификат клиента."
+    echo -e '</cert>' || handle_error "Не удалось добавить тег </cert>."
+    echo -e '<key>' || handle_error "Не удалось добавить тег <key>."
+    cat "${CLIENT_KEY}" || handle_error "Не удалось добавить ключ клиента."
+    echo -e '</key>' || handle_error "Не удалось добавить тег </key>."
+    echo -e '<tls-crypt>' || handle_error "Не удалось добавить тег <tls-crypt>."
+    cat "${TA_KEY}" || handle_error "Не удалось добавить ключ TLS."
+    echo -e '</tls-crypt>' || handle_error "Не удалось добавить тег </tls-crypt>."
+} > "${OUTPUT_DIR}/${1}.ovpn" || handle_error "Не удалось создать файл конфигурации для клиента."
+
+echo "Конфигурационный файл для клиента $1 успешно создан: ${OUTPUT_DIR}/${1}.ovpn"

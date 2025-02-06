@@ -1,0 +1,20 @@
+1) Проверим статус службы, чтобы исключить возможное ложное срабатывание:
+sudo systemctl status "служба".service
+Нормальное значение active(running)
+2) Если состояние отличается от нормального необходимо произвести рестарт:
+sudo systemctl restart "служба".service
+и проверить статус.
+3.Если служба не запустилась можно проверить все конфиг файлы: prometheus.yml,alertmanager.yml,rules_(название правила).yml. Сделать это можно с помощью:
+sudo promtool check config (название фала) или для алертменедежар sudo amtool check config alertmanager.yml.
+4) Проверьте ошибки в журнале и сислоге:
+sudo journalctl -xe.
+5) Если ошибка связана с конфиг файлом, можно переустановить новые файлы из удаленной репозитории.
+6) Для понимание, работоспособности системы можно запустить содержимое файл /etc/prometheus.service и /etc/prometheus-alermanager.service (графа ExeStart)  в ручную, например:
+ExecStart=/usr/local/bin/alertmanager --config.file=/etc/prometheus/alertmanager.yml --cluster.advertise-address=37.46.18.51:9093
+
+
+7) На крайний случай можно переустановить с удаленной репозитории содержимое пакета prometheus.0.0.n.dep
+, где n это номер свежего пакета.
+
+
+Надеюсь данная инструкция будет полезна в работе, удачи!)

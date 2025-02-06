@@ -1,0 +1,67 @@
+#!/bin/bash
+
+#Конфигурация
+BACKUP_DIR="/home/admin/Backup"  # Директория хранения бэкапов
+PACKAGE_NAME="prometheus-lab"      # Название пакета
+TARGET_DIR="/home/admin/*.sh /etc/prometheus/*.yml /etc/prometheus/console* /usr/bin/prometheus /usr/bin/promtool /usr/bin/alertmanager /usr/bin/amtool /etc/systemd/system/prometheus* /lib/systemd/system/prometheus.service /home/admin/Инструкции /etc/ssh/sshd_config"  # Файлы для бэкапа
+
+LAST_VERSION=$(ls "$BACKUP_DIR" | grep -oP "$PACKAGE_NAME-0\.\d+" | sort -V | tail -n1 | grep -oP "\d+$")
+if [ -z "$LAST_VERSION" ]; then
+    LAST_VERSION=0
+fi
+NEW_VERSION=$((LAST_VERSION + 1))
+
+# === Создаём временную рабочую директорию ===
+WORK_DIR="/home/admin/deb"
+PKG_DIR="$WORK_DIR/$PACKAGE_NAME-0.$NEW_VERSION"
+mkdir -p $PKG_DIR
+
+# === Копируем файлы для бэкапа ===
+cp -r $TARGET_DIR "$PKG_DIR"
+
+# === Переходим в рабочую папку ===
+cd "$PKG_DIR"
+
+# === Создаём шаблон структуры Debian пакета ===
+dh_make --createorig -y -s -p "$PACKAGE_NAME-0.$NEW_VERSION"
+
+# === Отключаем лишние скрипты ===
+rm -rf ./debian/*ex
+rm -rf ./debian/*EX
+rm -rf ./debian/READ*
+
+cp "$WORK_DIR"/install "$PKG_DIR"/debian
+
+# === Заполняем control-файл ===
+cat <<EOF > "debian/control"
+Source: $PACKAGE_NAME-0.$NEW_VERSION
+Section: lab
+Priority: optional
+Maintainer: admin <Companyname@gmail.ru>
+Build-Depends: debhelper-compat (= 12)
+Standards-Version: 4.4.1
+Homepage: https://github.com/Eternal-junior/prometheus-lab
+#Vcs-Browser: https://salsa.debian.org/debian/prometheus-lab
+#Vcs-Git: https://salsa.debian.org/debian/prometheus-lab.git
+Rules-Requires-Root: no
+
+Package: $PACKAGE_NAME-0.$NEW_VERSION
+Architecture: all
+Depends: openssl
+Recommends: opensc
+Description: Simple shell based CA utility
+ This package eases the creation of certificates, for example for openvpn clients.
+ This was formerly part of the openvpn package.
+EOF
+
+# === Собираем пакет ===
+debuild -b -us -uc
+
+# === Копируем результат в целевую директорию ===
+mv "$WORK_DIR"/*.deb /home/admin/Backup/"$PACKAGE_NAME-0.$NEW_VERSION".deb
+
+# === Удаляем временные файлы ===
+rm -rf "$WORK_DIR"/prometheus*
+
+# === Отправим файлы в удаленный репозиторий ===
+scp -P 222 /home/admin/Backup/"$PACKAGE_NAME-0.$NEW_VERSION".deb admin@37.46.18.242:/home/admin/Backup/prometheus

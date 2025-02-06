@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Функция для обработки ошибок
+handle_error() {
+    echo "Ошибка на этапе: $1"
+    echo "Скрипт завершен с ошибкой."
+    exit 1
+}
+
+# Директория с бэкапами
+BACKUP_DIR=/home/admin/Backup/easy-rsa
+
+# Файл для логов
+LOG_FILE="$BACKUP_DIR/backup.log"
+
+# Проверяем, существует ли директория с бэкапами
+if [ ! -d "$BACKUP_DIR" ]; then
+  echo "Директория $BACKUP_DIR не существует."
+  exit 1
+fi
+
+# Ищем последний файл в директории по шаблону "имя пакета-0.n"
+LATEST_FILE=$(ls -1 "$BACKUP_DIR" | grep -E '*+-0\.[0-9]\.deb' | sort -V | tail -n 1)
+
+# Проверяем, найден ли файл
+if [ -z "$LATEST_FILE" ]; then
+  echo "Файл, соответствующий шаблону, не найден."
+  exit 1
+fi
+
+# Проверяем, был ли этот файл уже залогирован
+if grep -q "^$LATEST_FILE " "$LOG_FILE"; then
+  echo "Файл $LATEST_FILE уже был залогирован."
+  exit 0
+fi
+
+sudo aptly repo add lab $BACKUP_DIR/$LATEST_FILE || handle_error "При добавлении в репозиторию"
+sudo aptly publish update focal filesystem:lab:lab || handle_error "При обновлении публикаций"
+# Получаем текущую дату
+CURRENT_DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Записываем результат в лог-файл
+echo "'$LATEST_FILE' $CURRENT_DATE logging was successful." >> "$LOG_FILE" || handle_error "При записи лога"
